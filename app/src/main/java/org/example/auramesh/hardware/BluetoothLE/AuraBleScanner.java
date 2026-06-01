@@ -37,19 +37,36 @@ public class AuraBleScanner {
     private final Handler watchdogHandler = new Handler(Looper.getMainLooper());
     private final Map<String, NeighborDevice> temporaryBuffer = new ConcurrentHashMap<>();
     private long lastScanResultTime = System.currentTimeMillis();
+    private volatile boolean isScanning = false;
+    private int scanResultCount = 0;
+
+    // Foreground Service callback
+    private ScanHealthCallback healthCallback;
+
+    public interface ScanHealthCallback {
+        void onScanResult();
+        void onScanStatusChange(boolean isRunning);
+    }
 
     public AuraBleScanner() {
         this.scanner = BluetoothAdapter.getDefaultAdapter().getBluetoothLeScanner();
+    }
+
+    public void setScanHealthCallback(ScanHealthCallback callback) {
+        this.healthCallback = callback;
     }
 
     private final Runnable watchdogRunnable = new Runnable() {
         @Override
         public void run() {
             if (System.currentTimeMillis() - lastScanResultTime > WATCHDOG_INTERVAL) {
-                Log.w(TAG, "Watchdog: Tarama donmuş, yeniden başlatılıyor.");
+                Log.w(TAG, "Watchdog: Tarama donmuş (" + scanResultCount + " sonuç), yeniden başlatılıyor.");
                 stop();
                 start();
+            } else {
+                Log.d(TAG, "Watchdog: Scanner sağlıklı (" + scanResultCount + " sonuç)");
             }
+            scanResultCount = 0; // Her watchdog döngüsünde sıfırla
             watchdogHandler.postDelayed(this, WATCHDOG_INTERVAL);
         }
     };
@@ -79,7 +96,13 @@ public class AuraBleScanner {
                 .build();
 
         scanner.startScan(Collections.singletonList(filter), settings, scanCallback);
+        isScanning = true;
+        scanResultCount = 0;
         Log.d(TAG, "BLE Dinleyici başlatıldı.");
+
+        if (healthCallback != null) {
+            healthCallback.onScanStatusChange(true);
+        }
 
         syncHandler.post(syncRunnable);
         watchdogHandler.post(watchdogRunnable);
@@ -94,14 +117,29 @@ public class AuraBleScanner {
                 Log.e(TAG, "Stop hatası: " + e.getMessage());
             }
         }
+        isScanning = false;
         syncHandler.removeCallbacks(syncRunnable);
         watchdogHandler.removeCallbacks(watchdogRunnable);
+
+        if (healthCallback != null) {
+            healthCallback.onScanStatusChange(false);
+        }
+    }
+
+    public boolean isScanning() {
+        return isScanning;
     }
 
     private final ScanCallback scanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             lastScanResultTime = System.currentTimeMillis(); // Watchdog'u resetle
+            scanResultCount++; // Tarama sonuç sayıcısını arttır
+
+            // Foreground Service'e bildir
+            if (healthCallback != null) {
+                healthCallback.onScanResult();
+            }
 
             if (result.getScanRecord() == null) return;
 

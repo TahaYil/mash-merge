@@ -27,5 +27,6 @@ public class AuraMessage {
         this.targetUuid = targetUuid;
         this.payload = payload;
         this.timestamp = timestamp;
+        this.ttl = ttl;
     }
 }

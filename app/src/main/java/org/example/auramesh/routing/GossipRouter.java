@@ -235,14 +235,22 @@ public class GossipRouter {
     }
 
     // =========================================================================
-    // YARDIMICI METHODLAR VE SENKRONİZASYON SONLANDIRMA
+    // YARDIMCI METHODLAR VE SENKRONİZASYON SONLANDIRMA
     // =========================================================================
 
     private void writeReceivedMessagesToDatabase(List<AuraMessage> receivedMessages) {
         Log.d(TAG, "[writeReceivedMessagesToDatabase] Veritabanına " + receivedMessages.size() + " adet yeni mesaj yazılacak.");
         if (!receivedMessages.isEmpty()) {
-            messageDao.insertAll(receivedMessages);
-            EventBus.getDefault().post(new NewMessagesSavedToDatabaseEvent(receivedMessages));
+            // Veritabanı işlemini thread pool'da çalıştır
+            AuraDatabase.databaseWriteExecutor.execute(() -> {
+                try {
+                    messageDao.insertAll(receivedMessages);
+                    Log.d(TAG, "[writeReceivedMessagesToDatabase] " + receivedMessages.size() + " mesaj başarıyla kaydedildi.");
+                    EventBus.getDefault().post(new NewMessagesSavedToDatabaseEvent(receivedMessages));
+                } catch (Exception e) {
+                    Log.e(TAG, "[writeReceivedMessagesToDatabase] Veritabanına mesaj kaydedilirken hata: " + e.getMessage());
+                }
+            });
         }
     }
 
@@ -290,8 +298,17 @@ public class GossipRouter {
     @Subscribe(threadMode = ThreadMode.BACKGROUND)
     public void onUserSendMessageEvent(UserSendMessageEvent event) {
         Log.i(TAG, "[onUserSendMessageEvent] Kullanıcı yeni mesaj attı. Veritabanına yazılıyor.");
-        messageDao.insert(event.auraMessage);
-        EventBus.getDefault().post(new NewMessagesSavedToDatabaseEvent(List.of(event.auraMessage)));
+
+        // Veritabanı işlemini thread pool'da çalıştır
+        AuraDatabase.databaseWriteExecutor.execute(() -> {
+            try {
+                messageDao.insert(event.auraMessage);
+                Log.d(TAG, "[onUserSendMessageEvent] Mesaj başarıyla veritabanına kaydedildi: " + event.auraMessage.messageId);
+                EventBus.getDefault().post(new NewMessagesSavedToDatabaseEvent(List.of(event.auraMessage)));
+            } catch (Exception e) {
+                Log.e(TAG, "[onUserSendMessageEvent] Veritabanına mesaj kaydedilirken hata: " + e.getMessage());
+            }
+        });
 
         Log.d(TAG, "[onUserSendMessageEvent] Mevcut Durum: " + currentState + ". Eğer IDLE ise komşular kontrol edilecek.");
         if (currentState == RouterState.IDLE) {
