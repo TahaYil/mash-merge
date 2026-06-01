@@ -1,4 +1,5 @@
 package org.example.auramesh.Register;
+import org.example.auramesh.events.RegisterToRouterEvents.DatabaseStateUpdatedEvent;
 import org.example.auramesh.events.RegisterToRouterEvents.MyNodeIdUpdatedEvent;
 import org.greenrobot.eventbus.EventBus;
 
@@ -38,6 +39,7 @@ public class BleAdvertiseRegister {
     public void updateDatabaseState(int currentMessageCount, String currentDatabaseHash) {
         this.messageCount = currentMessageCount;
         this.messageHash = currentDatabaseHash;
+        EventBus.getDefault().post(new DatabaseStateUpdatedEvent(currentMessageCount, currentDatabaseHash));
     }
 
     public String getMyNodeId(){

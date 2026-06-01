@@ -1,6 +1,7 @@
 package org.example.auramesh;
 
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -30,21 +31,18 @@ public class MessageActivity extends AppCompatActivity {
     private EditText edtMessageInput;
     private ImageView btnSendMessage;
     private List<AuraMessage> messageList = new ArrayList<>();
-    private String myNodeId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_message);
 
-        myNodeId = AuraIdentityManager.getMyNodeId(this);
-
         rvMessages = findViewById(R.id.rvMessages);
         edtMessageInput = findViewById(R.id.edtMessageInput);
         btnSendMessage = findViewById(R.id.btnSendMessage);
 
         rvMessages.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new MessageAdapter(messageList, myNodeId);
+        adapter = new MessageAdapter(messageList);
         rvMessages.setAdapter(adapter);
 
         rvMessages.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
@@ -85,6 +83,7 @@ public class MessageActivity extends AppCompatActivity {
     }
 
     private void sendMessage(String text) {
+        String myNodeId = AuraIdentityManager.getMyNodeId(this);
         String messageId = UUID.randomUUID().toString();
         AuraMessage msg = new AuraMessage(
                 messageId,
@@ -117,9 +116,7 @@ public class MessageActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        if (!EventBus.getDefault().isRegistered(this)) {
-            EventBus.getDefault().register(this);
-        }
+        EventBus.getDefault().register(this);
     }
 
     @Override

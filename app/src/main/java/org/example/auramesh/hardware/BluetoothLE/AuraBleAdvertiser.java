@@ -34,12 +34,27 @@ public class AuraBleAdvertiser {
         this.advertiser = BluetoothAdapter.getDefaultAdapter().getBluetoothLeAdvertiser();
     }
 
+    // Sınıfın en üstüne (isAdvertising değişkeninin yanına) bu iki hafızayı ekle:
+    private String lastAdvertisedHash = "";
+    private int lastAdvertisedCount = -1;
+
     private final Runnable heartbeatRunnable = new Runnable() {
         @Override
         public void run() {
             EventBus.getDefault().post(new TriggerTtlCleanupEvent());
 
-            heartbeatHandler.postDelayed(() -> restartAdvertising(), 100);
+            String currentHash = BleAdvertiseRegister.getInstance().getMessageHash();
+            int currentCount = BleAdvertiseRegister.getInstance().getMessageCount();
+
+            if (currentHash != null && (!currentHash.equals(lastAdvertisedHash) || currentCount != lastAdvertisedCount)) {
+                lastAdvertisedHash = currentHash;
+                lastAdvertisedCount = currentCount;
+
+                heartbeatHandler.postDelayed(() -> restartAdvertising(), 100);
+                Log.d(TAG, "Hash değişti! Yeni MAC adresi ile yayın güncelleniyor.");
+            } else {
+                Log.d(TAG, "Değişiklik yok, radyo frekansı bozulmadan yayına devam ediliyor.");
+            }
 
             heartbeatHandler.postDelayed(this, HEARTBEAT_INTERVAL);
         }
@@ -75,8 +90,8 @@ public class AuraBleAdvertiser {
         byte[] payload = buildPayload(myNodeId, hashHex, msgCount);
 
         AdvertiseSettings settings = new AdvertiseSettings.Builder()
-                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-                .setConnectable(false)
+                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
+                .setConnectable(true)
                 .build();
 
         AdvertiseData data = new AdvertiseData.Builder()

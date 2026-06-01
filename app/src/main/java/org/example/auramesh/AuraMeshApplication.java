@@ -1,7 +1,7 @@
 package org.example.auramesh;
 
 import android.app.Application;
-import org.example.auramesh.hardware.Bluetooth.AuraBluetoothService;
+import org.example.auramesh.hardware.Bluetooth.AuraGattService;
 import org.example.auramesh.hardware.BluetoothLE.AuraBleAdvertiser;
 import org.example.auramesh.hardware.BluetoothLE.AuraBleScanner;
 import org.example.auramesh.routing.GossipRouter;
@@ -9,7 +9,7 @@ import org.example.auramesh.routing.StateManager;
 
 public class AuraMeshApplication extends Application {
 
-    private AuraBluetoothService bluetoothService;
+    private AuraGattService bluetoothService;
     private AuraBleAdvertiser bleAdvertiser;
     private AuraBleScanner bleScanner;
     private GossipRouter gossipRouter;
@@ -23,7 +23,7 @@ public class AuraMeshApplication extends Application {
     public void startMeshServices() {
         if (bluetoothService == null) {
             stateManager = new StateManager(this);
-            bluetoothService = new AuraBluetoothService();
+            bluetoothService = new AuraGattService(this);
             gossipRouter = new GossipRouter(this);
             bleAdvertiser = new AuraBleAdvertiser();
             bleScanner = new AuraBleScanner();

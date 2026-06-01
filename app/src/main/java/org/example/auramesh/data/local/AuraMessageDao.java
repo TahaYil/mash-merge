@@ -11,10 +11,10 @@ import java.util.List;
 @Dao
 public interface AuraMessageDao {
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) // aynı id de mesaj gelirse ignorelanır
     void insert(AuraMessage message);
 
-    @Query("SELECT * FROM auraMessages ORDER BY timestamp ASC")
+    @Query("SELECT * FROM auraMessages")
     List<AuraMessage> getAllMessages();
 
     @Query("SELECT messageId FROM auraMessages")
@@ -35,6 +35,7 @@ public interface AuraMessageDao {
     @Query("SELECT COUNT(*) FROM auraMessages WHERE messageId = :msgId")
     int checkMessageExists(String msgId);
 
+    // 5. Otonom Temizlik: Eski ve gereksiz mesajları sil (Örn: 24 saatten eski)
     @Query("DELETE FROM auraMessages WHERE timestamp < :thresholdTime")
     void deleteOldMessages(long thresholdTime);
 }

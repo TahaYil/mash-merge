@@ -1,11 +1,16 @@
 package org.example.auramesh.hardware.Bluetooth;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
+import android.content.pm.PackageManager;
 import android.util.Log;
+
+import androidx.annotation.RequiresPermission;
+import androidx.core.app.ActivityCompat;
 
 import org.example.auramesh.data.models.AuraMessage;
 import org.example.auramesh.events.HardwareToRouterEvents.BluetoothConnectionFailedEvent;
@@ -95,7 +100,7 @@ public class AuraBluetoothService {
                         currentRole = Role.SERVER;
                         EventBus.getDefault().post(new IncomingBluetoothConnectionEvent(socket.getRemoteDevice()));
                         manageConnectedSocket(socket);
-                        break;
+
                     }
                 }
             } catch (Exception e) {
@@ -239,9 +244,9 @@ public class AuraBluetoothService {
 
     //todo: ileride partial sync olacak. hata durumunda bile buffera alabildiğimiz mesajları yükleyeceğiz.
     private void errorCloseConnection() {
-        try { if (activeSocket != null) activeSocket.close(); } catch (Exception ignored) {}
+        if (!isHardwareBusy.compareAndSet(true, false)) return;
 
-        isHardwareBusy.set(false);
+        try { if (activeSocket != null) activeSocket.close(); } catch (Exception ignored) {}
         currentRole = Role.NONE;
 
         EventBus.getDefault().post(new BluetoothDisconnectedUngracefulEvent());
@@ -249,30 +254,28 @@ public class AuraBluetoothService {
         receivedMessagesBuffer.clear();
         remoteInventoryBuffer.clear();
 
-        startListeningAsServer();
     }
 
     private void silentCloseConnection() {
+        if (!isHardwareBusy.compareAndSet(true, false)) return; // KİLİT
+
         try { if (activeSocket != null) activeSocket.close(); } catch (Exception ignored) {}
-        isHardwareBusy.set(false);
         currentRole = Role.NONE;
+
         receivedMessagesBuffer.clear();
         remoteInventoryBuffer.clear();
-        startListeningAsServer();
     }
 
     private void safeCloseConnection() {
-        try { if (activeSocket != null) activeSocket.close(); } catch (Exception ignored) {}
+        if (!isHardwareBusy.compareAndSet(true, false)) return; // KİLİT
 
-        isHardwareBusy.set(false);
+        try { if (activeSocket != null) activeSocket.close(); } catch (Exception ignored) {}
         currentRole = Role.NONE;
 
         EventBus.getDefault().post(new BluetoothDisconnectedGracefulEvent(new ArrayList<>(receivedMessagesBuffer)));
 
         receivedMessagesBuffer.clear();
         remoteInventoryBuffer.clear();
-
-        startListeningAsServer();
     }
 
     public void onDestroy() {

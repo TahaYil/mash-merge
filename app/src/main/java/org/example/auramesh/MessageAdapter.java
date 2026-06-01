@@ -1,26 +1,23 @@
 package org.example.auramesh;
 
 import android.graphics.Color;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import org.example.auramesh.data.models.AuraMessage;
+import org.example.auramesh.utils.AuraIdentityManager;
 import android.graphics.drawable.GradientDrawable;
 import java.util.List;
 
 public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHolder> {
 
     private final List<AuraMessage> messageList;
-    private final String myNodeId;
 
-    public MessageAdapter(List<AuraMessage> messageList, String myNodeId) {
+    public MessageAdapter(List<AuraMessage> messageList) {
         this.messageList = messageList;
-        this.myNodeId = myNodeId;
     }
 
     @NonNull
@@ -35,30 +32,14 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         AuraMessage msg = messageList.get(position);
         holder.txtContent.setText(msg.payload);
 
-        boolean isMe = msg.senderUuid != null && msg.senderUuid.equals(myNodeId);
-
-        // Hizalama ayarı
-        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) holder.txtContent.getLayoutParams();
-        if (isMe) {
-            params.gravity = Gravity.END;
-        } else {
-            params.gravity = Gravity.START;
-        }
-        holder.txtContent.setLayoutParams(params);
-
-        // Renk ayarı
+        // Acil durum mesajları kırmızı, normal mesajlar mor
         int color;
         if (msg.payload != null && (msg.payload.startsWith("ENKAZ") || msg.payload.startsWith("YARAL"))) {
-            color = Color.parseColor("#FF1F1F"); // Kırmızı (SOS)
+            color = Color.parseColor("#FF1F1F");
         } else if (msg.payload != null && msg.payload.startsWith("GÜVENDEYİM")) {
-            color = Color.parseColor("#9ABD3F"); // Yeşil
+            color = Color.parseColor("#9ABD3F");
         } else {
-            // Normal mesajlarda gönderen/alan ayrımı için farklı tonlar
-            if (isMe) {
-                color = Color.parseColor("#7F56D9"); // Mor (Ben)
-            } else {
-                color = Color.parseColor("#4B4B4B"); // Gri (Başkası)
-            }
+            color = Color.parseColor("#7F56D9");
         }
 
         GradientDrawable shape = new GradientDrawable();

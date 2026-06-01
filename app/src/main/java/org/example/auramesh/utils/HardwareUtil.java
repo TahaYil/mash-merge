@@ -15,6 +15,7 @@ public class HardwareUtil {
     private static final long timeout = 30_000;
 
     //taha sana yardımcı olması için yazdım blescannerda buffer ile registerdakileri bu method yardımıyla karşılaştıracaksın
+    // todo: ACİL OLARAK MAC ADRESİNİN OTOMATİK DEĞİŞTİĞİ DURUMLARDA NE YAPACAKSIN BİRR ÇARE BUL.
     public static void SyncNeighborList(Map<String, NeighborDevice> newNeighborMap) {
         NeighborRegister neighborRegister = NeighborRegister.getInstance();
         Map<String, NeighborDevice> oldNeighborMap = neighborRegister.getNeighborMap();
@@ -24,29 +25,30 @@ public class HardwareUtil {
         long currentTime = System.currentTimeMillis();
 
         for (Map.Entry<String, NeighborDevice> entry : newNeighborMap.entrySet()) {
-            String macAddress = entry.getKey();
+            String nodeId = entry.getKey();
             NeighborDevice newDevice = entry.getValue();
 
-            lastSeenMap.put(macAddress, currentTime);
+            lastSeenMap.put(nodeId, currentTime);
 
-            NeighborDevice oldDevice = oldNeighborMap.get(macAddress);
+            NeighborDevice oldDevice = oldNeighborMap.get(nodeId); // macadress aslında nodeid
             if (oldDevice == null) {
-
-                neighborRegister.addOrUpdateNeighbor(macAddress, newDevice);
+                neighborRegister.addOrUpdateNeighbor(nodeId, newDevice);
                 changed = true;
-            } else if (!oldDevice.messageHash.equals(newDevice.messageHash) || oldDevice.messageCount != newDevice.messageCount) {
+            } else if (!oldDevice.messageHash.equals(newDevice.messageHash) ||
+                    oldDevice.messageCount != newDevice.messageCount ||
+                    !oldDevice.physicalDevice.getAddress().equals(newDevice.physicalDevice.getAddress())) {
 
-                neighborRegister.addOrUpdateNeighbor(macAddress, newDevice);
+                neighborRegister.addOrUpdateNeighbor(nodeId, newDevice);
                 changed = true;
             }
         }
 
-        for (String macAddress : oldNeighborMap.keySet()) {
-            Long lastSeen = lastSeenMap.get(macAddress);
+        for (String nodeId : oldNeighborMap.keySet()) {
+            Long lastSeen = lastSeenMap.get(nodeId);
 
             if (lastSeen == null || (currentTime - lastSeen > timeout)) {
-                neighborRegister.deleteNeighbor(macAddress);
-                lastSeenMap.remove(macAddress);
+                neighborRegister.deleteNeighbor(nodeId);
+                lastSeenMap.remove(nodeId);
                 changed = true;
             }
         }

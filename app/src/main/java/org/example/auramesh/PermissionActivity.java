@@ -49,10 +49,14 @@ public class PermissionActivity extends AppCompatActivity {
         btnCancel = findViewById(R.id.btnCancel);
         btnContinue = findViewById(R.id.btnContinue);
 
-        setupPermissionItem(itemLocation, "Konum ve Bluetooth", "AuraMesh, afet anında internet olmasa dahi çevredeki cihazları bulmak ve güvenli bir iletişim ağı oluşturmak için Bluetooth ve Konum izinlerini kullanır.");
-        setupPermissionItem(itemNotification, "Bildirimler", "Hayati önem taşıyan acil durum uyarılarını ve çevrenizden gelen yardım çağrılarını anında görebilmeniz için bildirim izni gereklidir.");
-        setupPermissionItem(itemBattery, "Pil Optimizasyonu Kapat", "Uygulamanın arka planda kesintisiz çalışabilmesi ve her an yardım sinyali gönderebilmesi için pil kısıtlamalarının kaldırılması önerilir.");
-        setupPermissionItem(itemAll, "Tümüne İzin Ver", "Tek bir işlemle gerekli tüm sistem izinlerini onaylayabilir ve uygulamayı en yüksek verimle kullanmaya başlayabilirsiniz.");
+        setupPermissionItem(itemLocation, "Konum ve Bluetooth",
+                "AuraMesh, afet anında internet olmasa dahi çevredeki cihazları bulmak ve güvenli bir iletişim ağı oluşturmak için Bluetooth ve Konum izinlerini kullanır.");
+        setupPermissionItem(itemNotification, "Bildirimler",
+                "Hayati önem taşıyan acil durum uyarılarını ve çevrenizden gelen yardım çağrılarını anında görebilmeniz için bildirim izni gereklidir.");
+        setupPermissionItem(itemBattery, "Pil Optimizasyonu Kapat",
+                "Uygulamanın arka planda kesintisiz çalışabilmesi ve her an yardım sinyali gönderebilmesi için pil kısıtlamalarının kaldırılması önerilir.");
+        setupPermissionItem(itemAll, "Tümüne İzin Ver",
+                "Tek bir işlemle gerekli tüm sistem izinlerini onaylayabilir ve uygulamayı en yüksek verimle kullanmaya başlayabilirsiniz.");
 
         FrameLayout toggleAll = itemAll.findViewById(R.id.customToggle);
         toggleAll.setOnClickListener(v -> {
@@ -64,18 +68,36 @@ public class PermissionActivity extends AppCompatActivity {
         });
 
         btnCancel.setOnClickListener(v -> finish());
-        btnContinue.setOnClickListener(v -> requestRealPermissions());
+
+        btnContinue.setOnClickListener(v -> {
+            boolean isLocationAccepted = itemLocation.findViewById(R.id.customToggle).isSelected();
+            boolean isNotificationAccepted = itemNotification.findViewById(R.id.customToggle).isSelected();
+            boolean isBatteryAccepted = itemBattery.findViewById(R.id.customToggle).isSelected();
+
+            if (isLocationAccepted && isNotificationAccepted && isBatteryAccepted) {
+                requestRealPermissions();
+            } else {
+                Toast.makeText(this, "Lütfen devam etmek için tüm izinleri aktif hale getirin.", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void requestRealPermissions() {
         List<String> permsNeeded = new ArrayList<>();
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             permsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) permsNeeded.add(Manifest.permission.BLUETOOTH_SCAN);
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) permsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT);
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) permsNeeded.add(Manifest.permission.BLUETOOTH_ADVERTISE);
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                permsNeeded.add(Manifest.permission.BLUETOOTH_SCAN);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                permsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) {
+                permsNeeded.add(Manifest.permission.BLUETOOTH_ADVERTISE);
+            }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -91,9 +113,10 @@ public class PermissionActivity extends AppCompatActivity {
     }
 
     private void proceedToProfile() {
+        // Mesh servislerini başlat
         ((AuraMeshApplication) getApplication()).startMeshServices();
-        startActivity(new Intent(PermissionActivity.this, ProfileActivity.class));
-        finish(); // İzin ekranını kapat
+        Intent intent = new Intent(PermissionActivity.this, ProfileActivity.class);
+        startActivity(intent);
     }
 
     private void setupPermissionItem(LinearLayout item, String title, String description) {
@@ -108,7 +131,8 @@ public class PermissionActivity extends AppCompatActivity {
 
         if (item.getId() != R.id.itemAll) {
             toggle.setOnClickListener(v -> {
-                setToggleState(item, !toggle.isSelected());
+                boolean isOn = toggle.isSelected();
+                setToggleState(item, !isOn);
                 updateAllToggleState();
             });
         }
