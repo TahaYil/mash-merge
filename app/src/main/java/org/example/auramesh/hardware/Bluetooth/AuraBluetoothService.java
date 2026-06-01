@@ -71,6 +71,8 @@ public class AuraBluetoothService {
     private DataOutputStream outputStream;
     private DataInputStream inputStream;
     private final AtomicBoolean isHardwareBusy = new AtomicBoolean(false);
+    private final AtomicBoolean serverListening = new AtomicBoolean(false);
+
     public enum Role {
         CLIENT,
         SERVER,
@@ -86,63 +88,59 @@ public class AuraBluetoothService {
         startListeningAsServer();
     }
 
-    private void startListeningAsServer() {
+    public synchronized void startListeningAsServer() {
+        if (!serverListening.compareAndSet(false, true)) {
+            Log.d(TAG, "Server zaten dinliyor, yeniden başlatılmıyor");
+            return;
+        }
+
+        Log.d(TAG, "Server dinleme başlıyor...");
         networkExecutor.execute(() -> {
             try {
                 serverSocket = adapter.listenUsingInsecureRfcommWithServiceRecord("AuraMesh", RFCOMM_UUID);
-                while (!Thread.currentThread().isInterrupted()) {
+                while (!Thread.currentThread().isInterrupted() && serverListening.get()) {
                     BluetoothSocket socket = serverSocket.accept();
                     if (socket != null) {
                         if (!isHardwareBusy.compareAndSet(false, true)) {
-                            socket.close();
+                            try { socket.close(); } catch (Exception ignored) {}
                             continue;
                         }
                         currentRole = Role.SERVER;
                         EventBus.getDefault().post(new IncomingBluetoothConnectionEvent(socket.getRemoteDevice()));
                         manageConnectedSocket(socket);
-
                     }
                 }
             } catch (Exception e) {
                 currentRole = Role.NONE;
                 Log.e(TAG, "Sunucu socket hatası: " + e.getMessage());
+            } finally {
+                serverListening.set(false);
+                try {
+                    if (serverSocket != null) {
+                        serverSocket.close();
+                        serverSocket = null;
+                    }
+                } catch (Exception ignored) {}
             }
         });
     }
 
-    @Subscribe(threadMode = ThreadMode.BACKGROUND)
-    public void onConnectWithBluetoothCommand(ConnectWithBluetoothCommandEvent event) {
-        networkExecutor.execute(() -> {
-            if (!isHardwareBusy.compareAndSet(false, true)) {
-                EventBus.getDefault().post(new BluetoothConnectionFailedEvent());
-                return;
-            }
-            try {
-                currentRole = Role.CLIENT;
-                EventBus.getDefault().post(new BluetoothConnectingAsClientEvent());
-
-                BluetoothDevice device = event.targetDevice.physicalDevice;
-                BluetoothSocket clientSocket = device.createInsecureRfcommSocketToServiceRecord(RFCOMM_UUID);
-                adapter.cancelDiscovery();
-                clientSocket.connect();
-
-                manageConnectedSocket(clientSocket);
-            } catch (Exception e) {
-                //todo: burada closeconnection metodlarından biri kullanılacak
-                isHardwareBusy.set(false);
-                currentRole = Role.NONE;
-                EventBus.getDefault().post(new BluetoothConnectionFailedEvent());
-            }
-        });
+    public void ensureServerListening() {
+        if (!serverListening.get()) {
+            Log.d(TAG, "Server dinlemesi kayıp, yeniden başlatılıyor...");
+            startListeningAsServer();
+        }
     }
 
-    @Subscribe(threadMode = ThreadMode.BACKGROUND)
-    public void onRejectConnectionRequest(RejectConnectionRequestCommandEvent event) {
-        networkExecutor.execute(() -> {
-            if (activeSocket != null && activeSocket.getRemoteDevice().equals(event.bluetoothDevice)) {
-                silentCloseConnection();
+    public void stopServerListening() {
+        Log.d(TAG, "Server dinlemesi durduruluyor...");
+        try {
+            if (serverSocket != null) {
+                serverSocket.close();
+                serverSocket = null;
             }
-        });
+        } catch (Exception ignored) {}
+        serverListening.set(false);
     }
 
     private void manageConnectedSocket(BluetoothSocket socket) {
